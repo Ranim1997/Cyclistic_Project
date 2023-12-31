@@ -1,0 +1,345 @@
+---
+title: "Analysis of Cyclistic Bike Share"
+author: "Ranim Almuslim"
+date: "2023-12-29"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+#### This case study for the capstone project of the Google Data Analytics Professional Certificate.
+
+**Case Study Scenario**
+
+You are a junior data analyst working in the marketing analyst team at Cyclistic, a bike-share company in Chicago. The director of marketing believes the company’s future success depends on maximizing the number of annual memberships. Therefore, **your team wants to understand how casual riders and annual members use Cyclistic bikes differently.** From these insights, your team will design a new marketing strategy to convert casual riders into annual members. But first, Cyclistic executives must approve your recommendations, so they must be backed up with compelling data insights and professional data visualizations.
+
+
+# How do annual members and casual riders use Cyclistic bikes differently?
+
+You will produce a report with the following deliverables:
+
+1. A clear statement of the business task
+
+2. A description of all data sources used
+
+3. Documentation of any cleaning or manipulation of data
+
+4. A summary of your analysis
+
+5. Supporting visualizations and key findings
+
+6. Your top three recommendations based on your analysis
+
+## 1. Ask
+
+The purpose of this business task is to know the difference between the annual members and casual riders use of Cyclistic bikes in order to convert the casual riders to annual members.
+
+The key stakeholders are director of marketing, marketing analytics team, executive team, and users.
+
+
+## 2. Prepare
+
+Cyclistic’s historical trip dataset will be used in order to identify and analyse the trends, data has been made available here by Motivate International Inc. under this [license](https://divvybikes.com/data-license-agreement). For the sake of the case study, the dataset used for analysis is **from September 2023 to November 2023**, that mean the *last 3 months* will be considered in this case study.
+
+I have downloaded the data and store it in my laptop as a CSV file. The dataset consists of *13 columns*, each month in separated file, *total number of rows are 1,566,005*. Event thought after taking a quick glimpse, sorting, and filtering the data using Excel, there are few null (empty) records but that will not affect the analysis process. The dataset doesn’t include any personal data, so the individuals will not be personally identifiable.
+
+With all above mentioned, I can tell that the dataset is **(ROCCC)** reliable, original, comprehensive, current, and cited.
+
+## 3. Process
+
+**R programming language** and **R Studio as a tool** will be used for processing and next stages (Analyse and share).
+
+The processing will include the following steps:
+
+*	Create the columns “day_of_week” as asked in the case study instructions (This was done via Excel)
+*	Load the required tools within R.
+*	Load and combine the datasets into one file and save it.
+*	Eliminate the unnecessary columns and rename the other columns and delete empty records.
+*	Take an overview of the new data.
+*	Documentation of the steps as follows:
+
+Install and load the required tools:
+
+```{r eval=FALSE}
+# Install required packages
+install.packages("tidyverse") # transforming data
+install.packages("lubridate") # date formation
+install.packages("dplyr") # data manipulation
+install.packages("janitor") # cleaning data
+install.packages("ggplot2") # creating graphics
+
+# Load the packages
+library(tidyverse)
+library(lubridate)
+library(dplyr)
+library(janitor)
+library(ggplot2)
+
+```
+
+Read the data from the three files for **Sept, Oct, and Nov**:
+```{r eval=FALSE}
+df202309 <- read_csv('202309.csv')
+df202310 <- read_csv("202310.csv")
+df202311 <- read_csv("202311.csv")
+```
+
+Validating the columns name before processing them:
+```{r eval=FALSE}
+colnames(df202309)
+colnames(df202310)
+colnames(df202311)
+```
+
+Inspect more in the data variable types:
+```{r eval=FALSE}
+str(df202309)
+str(df202310)
+str(df202311)
+```
+
+Now I can combine the 3 files safely using rbind since I checked the columns match across all files:
+```{r eval=FALSE}
+all_rides <- rbind(df202309,df202310,df202311)
+```
+I want to eliminate the columns that I will not be using them for the analysis:
+```{r eval=FALSE}
+all_rides <- all_rides %>%
+select(-c(start_lat, start_lng, end_lat, end_lng))
+```
+Change the column name to be more meaningful:
+```{r eval=FALSE}
+all_rides <- rename(all_rides, membership = member_casual)
+```
+Check the result so far:
+```{r eval=FALSE}
+colnames(all_rides)
+```
+Add column for *ride month*:
+```{r eval=FALSE}
+all_rides$month <- months(as.Date(all_rides$started_at))
+```
+Change the *numbers* to *char* for **day_of_week** variable:
+```{r eval=FALSE}
+all_rides <- all_rides %>% 
+   mutate(day_of_week = recode(day_of_week
+                               ,"1" = "Sunday"
+                               ,"2" = "Monday"
+                               ,"3" = "Tuesday"
+                               ,"4" = "Wednesday"
+                               ,"5" = "Thursday"
+                               ,"6" = "Friday"
+                               ,"7" = "Saturday"))
+```
+Create **ride length** column and change the type:
+```{r eval=FALSE}
+all_rides$ride_length <- (as.double(difftime(all_rides$ended_at, all_rides$started_at)))/60
+```
+Ride length *less than 0* will be removed:
+```{r eval=FALSE}
+sum(all_rides$ride_length < 0, na.rm=TRUE)
+all_rides <- all_rides[!(all_rides$ride_length<0),]
+```
+Inspect the data frame:
+```{r eval=FALSE}
+colnames(all_rides)
+dim(all_rides)
+head(all_rides)
+summary(all_rides)
+```
+Cleaning *empty/NA* records:
+```{r eval=FALSE}
+all_rides <- remove_empty(all_rides)
+all_rides <- drop_na(all_rides)
+all_rides <- remove_missing(all_rides)
+```
+Inspect the new table after cleaning:
+```{r eval=FALSE}
+colnames(all_rides)
+dim(all_rides)
+head(all_rides)
+summary(all_rides)
+```
+**Save** the cleaned file to use it for analyse step:
+```{r eval=FALSE}
+write.csv(all_rides,file = "all_rides.csv", row.names = FALSE)
+
+# Well done me!
+```
+
+## 4. Analyse
+
+Let’s start with analysis by load the packages and read the cleaned file from the last step:
+```{r eval=FALSE}
+
+# Load packages
+library(tidyverse)
+library(lubridate)
+library(dplyr)
+library(janitor)
+library(ggplot2)
+
+# Read the cleaned file to start the analysis process
+all_rides <- read_csv('all_rides.csv')
+```
+
+```{r echo=FALSE, fig.align = "center"}
+knitr::include_graphics("Cleaned_Data_Import.png")
+```
+Let us first find out the percentage of each membership type:
+```{r echo=FALSE, fig.align = "center"}
+knitr::include_graphics("Membership_Percentage.png")
+```
+members are higher for the period of three months.
+*Summary function* will check for **Min, Max, Mean and Median** for **ride length**:
+```{r eval=FALSE}
+summary(all_rides$ride_length)
+```
+```{r echo=FALSE, fig.align = "center"}
+knitr::include_graphics("Summary_of_Ride_Length.png")
+```
+Compare members and casual rides behavior based on the Min, Max, Mean and Median ride length
+```{r eval=FALSE}
+aggregate(all_rides$ride_length ~ all_rides$membership, FUN = max)
+aggregate(all_rides$ride_length ~ all_rides$membership, FUN = min)
+aggregate(all_rides$ride_length ~ all_rides$membership, FUN = mean)
+aggregate(all_rides$ride_length ~ all_rides$membership, FUN = median)
+```
+```{r echo=FALSE, fig.align = "center"}
+knitr::include_graphics("Max_and_Min.png")
+```
+We can notice there is no difference for min and max ride, both member and casual riders could go as max and as min as possible. But..
+```{r echo=FALSE, fig.align = "center"}
+knitr::include_graphics("Mean_and_Median.png")
+```
+*Casual riders* in average **ride more than** the *members* and the median is higher.
+
+Order *day of week* from **Sunday** to **Saturday**:
+```{r eval=FALSE}
+all_rides$day_of_week <- ordered(all_rides$day_of_week, levels=c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
+```
+
+Find out the *avg of ride length* based on *day of week* for *each type of membership*:
+```{r eval=FALSE}
+aggregate(all_rides$ride_length ~ all_rides$membership + all_rides$day_of_week, FUN = mean)
+``` 
+```{r echo=FALSE, fig.align = "center"}
+knitr::include_graphics("Membership_vs_DayOfWeek_vs_RideLength.png")
+```
+We can notice that the *casual riders* are **more likely** to take the ride on *weekends (Sunday and Saturday)*. While *member riders* are tend to use it same way in the weekends and weekdays.
+
+Find out the *number of rides* based on the *membership* and *month*:
+```{r eval=FALSE}
+View(all_rides %>% 
+       group_by(month,membership) %>% 
+       summarise(number_of_ride = n()))
+```
+```{r echo=FALSE, fig.align = "center"}
+knitr::include_graphics("Month_vs_Membership_vs_NoOfRides.png")
+```
+It is noticeable that the *number of rides* **decreased** for both types of members from September to November. We could say that in higher temperature the people are more likely to have a ride.
+
+Find out the type of bike used based on the membership:
+```{r eval=FALSE}
+View(all_rides %>%
+       group_by(membership,rideable_type) %>%
+       summarise(number_of_ride = n()))
+``` 
+```{r echo=FALSE, fig.align = "center"}
+knitr::include_graphics("Membership_vs_BikeType_vs_NoOfRides.png")
+```
+The *number of rides* using the **classic bike** is *higher* for both type of membership.
+
+Find out *number of rides* based on *day of week* and *membership*:
+```{r eval=FALSE}
+View(all_rides %>%
+       group_by(membership,day_of_week) %>%
+       summarise(number_of_ride = n()))
+```
+For further analysis I wanted to know which *day of week* has **the most** rides based on *membership*
+```{r echo=FALSE, fig.align = "center"}
+knitr::include_graphics("Membership_vs_DayOfWeek_vs_NoOfRides.png")
+```
+I noticed for *casual riders* the weekend is the trend, while for *members* the weekdays are the highest.
+
+## 5. Share
+Now, will create visuals to support the above analysis and share the findings.
+
+Create pie chart for *percentage of membership during 3 months*:
+```{r eval=FALSE}
+x <- c(34.75669,65.24331)
+labels <- c("Casual", "Members") 
+pie(x,labels, main="Percentage of membership during 3 months")
+```
+```{r echo=FALSE, fig.align = "center"}
+knitr::include_graphics("Chart_Membership_Percentage.png")
+```
+Let's visualize the *number of rides* by *rider type*:
+```{r eval=FALSE}
+all_rides %>% 
+  mutate(weekday = wday(started_at, label = TRUE)) %>% 
+  group_by(membership, weekday) %>% 
+  summarise(number_of_rides = n()
+            ,average_duration = mean(ride_length)) %>% 
+  arrange(membership, weekday)  %>% 
+  ggplot(aes(x = weekday, y = number_of_rides, fill = membership)) +
+  geom_col(position = "dodge")
+```
+```{r echo=FALSE, fig.align = "center"}
+knitr::include_graphics("Chart_Membership_NoOfRides_vs_Weekdays.png")
+```
+
+Let's visualize *membership* vs *bike type*
+```{r eval=FALSE}
+all_rides %>% 
+  group_by(membership, rideable_type) %>% 
+  summarise(number_of_rides = n()) %>% 
+  mutate(percentage=number_of_rides*100/sum(number_of_rides))  %>% 
+  ggplot(aes(x = membership, y = percentage, fill = rideable_type)) +
+  geom_col(position = "dodge") + labs(title="membership vs bike type")
+```
+```{r echo=FALSE, fig.align = "center"}
+knitr::include_graphics("Chart_Membership_vs_BikeType.png")
+```
+Let's visualize *months* vs *percentage of rides*:
+```{r eval=FALSE}
+all_rides %>% 
+  group_by(month) %>% 
+  summarise(number_of_rides = n()) %>% 
+  mutate(percentage=number_of_rides*100/sum(number_of_rides))  %>% 
+  ggplot(aes(x = percentage, y = month)) +
+  geom_col(position = "dodge",fill = "#00abff") +
+  labs(title="months vs percent number of rides")
+```
+```{r echo=FALSE, fig.align = "center"}
+knitr::include_graphics("Chart_Months_vs_percentNoOfRides.png")
+```
+Let's visualize *average ride length* vs *membership*:
+```{r eval=FALSE}
+all_rides %>% 
+  group_by(membership) %>% 
+  summarise(average_ride_length = mean(ride_length)) %>% 
+  ggplot(aes(x = membership, y = average_ride_length , group = 1)) +
+  geom_point(colour = "red",size=4) +
+  labs(title="average ride length vs membership")
+```
+```{r echo=FALSE, fig.align = "center"}
+knitr::include_graphics("Chart_AvgRideLength_vs_Membership.png")
+```
+So, **as conclusion** for this analysis for 3 months data and comparing casual and members behavior, the findings are:
+
+1.	The percentage of member riders is higher than the casual riders.
+2.	Casual riders are using the app more in the weekends, while members in the weekdays
+3.	September is the highest for both type of riders, while November is the lowest.
+4.	Classic bikes are used more than the electric bike for both type of riders.
+5.	On average casual riders drive for longer distance than members.
+
+## 6. Act
+
+Based on my analysis to convert casual riders into members, the top four recommendations are:
+
+1. Offer benefits exclusive for members, especially on weekends and summer, so casual riders will be encouraged to be annual member.
+2. Casual riders tend to drive for longer distance than members, so introducing some type of benefit related to driving longer distance, but it is only active if they are an annual member.
+3. Focus on maintaining the classic bike since it is the favourite option for both memberships.
+4. flexible plans like “on weekends” or “Summer only” will be a starting point to attract more people to use the bike share more often, thus, they may be interested in moving to annual plan.
