@@ -26,4 +26,4 @@ Based on my analysis, to convert casual riders into members, the top four recomm
 3. Focus on maintaining the classic bike since it is the favourite option for both memberships.
 4. flexible plans like “on weekends” or “Summer only” will be a starting point to attract more people to use the bike share more often, thus, they may be interested in moving to annual plan.
 
-**Thank for reading**
+**Thank you for reading**
